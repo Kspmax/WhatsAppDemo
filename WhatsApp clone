@@ -1,0 +1,66 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage('Clone Repository') {
+            steps {
+                // Clone the WhatsApp-related repository
+                git url: 'https://github.com/Kspmax/WhatsAppDemo.git', branch: 'main'
+            }
+        }
+        
+        stage('Compile Code') {
+            steps {
+                script {
+                    def sourceDir = 'src' // Directory where Java files are located
+                    def outputDir = 'bin' // Directory for compiled classes
+                    
+                    // Ensure output directory exists
+                    sh "mkdir -p ${outputDir}"
+                    
+                    // Compile Java files
+                    def compileResult = sh(
+                        script: "javac -d ${outputDir} ${sourceDir}/**/*.java",
+                        returnStatus: true
+                    )
+                    
+                    // Validate compilation
+                    if (compileResult != 0) {
+                        error "Compilation failed."
+                    } else {
+                        echo "Compilation succeeded."
+                    }
+                }
+            }
+        }
+        stage('Run JUnit Tests for WhatsApp Features') {
+            steps {
+                script {
+                    def testClasses = []
+                    // Auto-discover test classes
+                    for (file in new File('bin').listFiles()) {
+                        if (file.name.endsWith('.class')) {
+                            testClasses << file.name.replace('.class', '')
+                        }
+                    }
+                    def TEST_CLASS = testClasses.join(' ')
+                    
+                    // Run JUnit tests with WhatsApp API dependencies
+                    sh "java -cp 'bin:junit-4.11.jar:hamcrest-core-1.3.jar:whatsapp-api.jar' org.junit.runner.JUnitCore ${TEST_CLASS}"
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo 'Pipeline execution completed.'
+        }
+        success {
+            echo 'Pipeline succeeded!'
+        }
+        failure {
+            echo 'Pipeline failed.'
+        }
+    }
+}
